@@ -21,4 +21,4 @@ This project helped me improve my understanding of databases, SQL queries, and d
 
 ## Author
 
-[Your Name]
+[Parkhi Verma]
