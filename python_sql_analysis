@@ -1,0 +1,368 @@
+print("Program Started...\n")
+
+import matplotlib.pyplot as plt
+import mysql.connector
+
+# ---------------- CONNECTION ----------------
+try:
+    con = mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="Park15##",
+        auth_plugin="mysql_native_password",
+        use_pure=True
+    )
+
+    cursor = con.cursor()
+    print("✅ Connected to MySQL\n")
+
+except Exception as e:
+    print("Connection Error:", e)
+    exit()
+
+# ---------------- DATABASE SETUP ----------------
+try:
+    cursor.execute("CREATE DATABASE IF NOT EXISTS sales_analysis_db")
+    cursor.execute("USE sales_analysis_db")
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS customers (
+        customer_id VARCHAR(10) PRIMARY KEY,
+        name VARCHAR(50),
+        age INT,
+        city VARCHAR(50)
+    )
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS products (
+        product_id VARCHAR(10) PRIMARY KEY,
+        product_name VARCHAR(50),
+        price INT
+    )
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS orders (
+        order_id INT PRIMARY KEY,
+        order_date DATE,
+        customer_id VARCHAR(10),
+        product_id VARCHAR(10),
+        quantity INT,
+        FOREIGN KEY (customer_id) REFERENCES customers(customer_id),
+        FOREIGN KEY (product_id) REFERENCES products(product_id)
+    )
+    """)
+
+    print("✅ Database & Tables Ready\n")
+
+except Exception as e:
+    print("Database Error:", e)
+
+
+# ---------------- INSERT DATA ----------------
+def insert_data():
+
+    # Delete in correct order
+    cursor.execute("DELETE FROM orders")
+    cursor.execute("DELETE FROM customers")
+    cursor.execute("DELETE FROM products")
+
+    # Customers
+    cursor.executemany("""
+    INSERT INTO customers (customer_id, name, age, city)
+    VALUES (%s, %s, %s, %s)
+    """, [
+        ('C1','Rahul Sharma',25,'Delhi'),
+        ('C2','Priya Verma',30,'Mumbai'),
+        ('C3','Aakash Singh',22,'Delhi'),
+        ('C4','Neha Gupta',28,'Bangalore'),
+        ('C5','Rohit Mehta',35,'Pune'),
+        ('C6','Simran Kaur',27,'Chandigarh'),
+        ('C7','Aman Jain',24,'Jaipur'),
+        ('C8','Sneha Reddy',29,'Hyderabad'),
+        ('C9','Karan Patel',31,'Ahmedabad'),
+        ('C10','Pooja Yadav',26,'Lucknow')
+    ])
+
+    # Products
+    cursor.executemany("""
+    INSERT INTO products (product_id, product_name, price)
+    VALUES (%s, %s, %s)
+    """, [
+        ('P101','Laptop',60000),
+        ('P102','Smartphone',20000),
+        ('P103','Headphones',2000),
+        ('P104','Smartwatch',5000),
+        ('P105','Tablet',30000),
+        ('P106','Keyboard',1500),
+        ('P107','Mouse',800)
+    ])
+
+    # Orders
+    cursor.executemany("""
+    INSERT INTO orders (order_id, order_date, customer_id, product_id, quantity)
+    VALUES (%s, %s, %s, %s, %s)
+    """, [
+        (101,'2026-01-05','C1','P101',1),
+        (102,'2026-01-06','C2','P102',2),
+        (103,'2026-01-08','C3','P103',3),
+        (104,'2026-01-15','C4','P104',1),
+        (105,'2026-01-20','C5','P105',1),
+
+        (106,'2026-02-02','C1','P101',1),
+        (107,'2026-02-05','C6','P102',1),
+        (108,'2026-02-10','C7','P103',2),
+        (109,'2026-02-18','C8','P104',1),
+        (110,'2026-02-25','C9','P105',1),
+
+        (111,'2026-03-01','C2','P101',1),
+        (112,'2026-03-05','C3','P102',1),
+        (113,'2026-03-10','C4','P103',2),
+        (114,'2026-03-15','C5','P104',1),
+        (115,'2026-03-20','C10','P105',1),
+
+        (116,'2026-04-02','C6','P101',1),
+        (117,'2026-04-07','C7','P102',2),
+        (118,'2026-04-12','C8','P103',1),
+        (119,'2026-04-18','C9','P104',2),
+        (120,'2026-04-25','C1','P106',3),
+
+        (121,'2026-05-01','C2','P107',2),
+        (122,'2026-05-05','C3','P101',1),
+        (123,'2026-05-10','C4','P102',1),
+        (124,'2026-05-15','C5','P103',2),
+        (125,'2026-05-20','C6','P104',1)
+    ])
+
+    con.commit()
+    print("✅ Data Inserted Successfully\n")
+
+
+insert_data()
+
+# ---------------- ANALYSIS ----------------
+
+def monthly_sales():
+
+    cursor.execute("""
+    SELECT DATE_FORMAT(order_date, '%Y-%m') AS month,
+           SUM(quantity * price) AS total_sales
+    FROM orders
+    JOIN products USING(product_id)
+    GROUP BY month
+    ORDER BY month
+    """)
+
+    data = cursor.fetchall()
+
+    print("📊 MONTHLY SALES\n")
+
+    for row in data:
+        print("Month:", row[0], "| Sales:", row[1])
+
+    return data
+
+
+def product_sales():
+
+    cursor.execute("""
+    SELECT product_name,
+           SUM(quantity * price) AS total_sales
+    FROM orders
+    JOIN products USING(product_id)
+    GROUP BY product_name
+    ORDER BY total_sales DESC
+    """)
+
+    data = cursor.fetchall()
+
+    print("\n📦 PRODUCT SALES\n")
+
+    for row in data:
+        print(row[0], ":", row[1])
+
+    return data
+
+
+def city_sales():
+
+    cursor.execute("""
+    SELECT city,
+           SUM(quantity * price) AS total_sales
+    FROM orders
+    JOIN customers USING(customer_id)
+    JOIN products USING(product_id)
+    GROUP BY city
+    ORDER BY total_sales DESC
+    """)
+
+    data = cursor.fetchall()
+
+    print("\n🌍 CITY SALES\n")
+
+    for row in data:
+        print(row[0], ":", row[1])
+
+    return data
+
+
+def top_customers():
+
+    cursor.execute("""
+    SELECT c.name,
+           SUM(o.quantity * p.price) AS total_spent
+    FROM orders o
+    JOIN customers c USING(customer_id)
+    JOIN products p USING(product_id)
+    GROUP BY c.name
+    ORDER BY total_spent DESC
+    LIMIT 5
+    """)
+
+    data = cursor.fetchall()
+
+    print("\n🧑 TOP CUSTOMERS\n")
+
+    for row in data:
+        print(row[0], "→ ₹", row[1])
+
+    return data
+
+
+# ---------------- RUN ANALYSIS ----------------
+
+m = monthly_sales()
+p = product_sales()
+c = city_sales()
+t = top_customers()
+
+# ---------------- INSIGHTS ----------------
+
+def show_insights(m, p, c):
+
+    print("\n📊 ===== BUSINESS INSIGHTS =====\n")
+
+    highest_month = max(m, key=lambda x: x[1])
+    lowest_month = min(m, key=lambda x: x[1])
+
+    print("📈 Monthly Performance")
+    print("Highest Sales Month :", highest_month[0], "→ ₹", highest_month[1])
+    print("Lowest Sales Month  :", lowest_month[0], "→ ₹", lowest_month[1])
+
+    top_product = max(p, key=lambda x: x[1])
+
+    print("\n📦 Product Performance")
+    print("Top Selling Product :", top_product[0], "→ ₹", top_product[1])
+
+    top_city = max(c, key=lambda x: x[1])
+
+    print("\n🌍 Regional Performance")
+    print("Top Performing City :", top_city[0], "→ ₹", top_city[1])
+
+    print("\n🔍 Observations")
+    print("-", top_product[0], "is generating the highest revenue.")
+    print("-", top_city[0], "has the strongest customer market.")
+    print("- Sales performance dropped in", lowest_month[0])
+
+    print("\n💡 Recommendations")
+    print("- Increase promotion for", top_product[0])
+    print("- Focus marketing campaigns in", top_city[0])
+    print("- Analyze reasons behind low sales in", lowest_month[0])
+
+show_insights(m, p, c)
+
+# ---------------- CHARTS ----------------
+
+def monthly_sales_chart(m):
+
+    months = []
+    sales = []
+
+    for row in m:
+        months.append(row[0])
+        sales.append(row[1])
+
+    plt.figure(figsize=(8,5))
+
+    plt.plot(months, sales, marker='o')
+
+    plt.title("Monthly Sales Trend")
+    plt.xlabel("Month")
+    plt.ylabel("Sales")
+
+    plt.grid(True)
+
+    plt.show()
+
+
+def product_sales_chart(p):
+
+    products = []
+    sales = []
+
+    for row in p:
+        products.append(row[0])
+        sales.append(row[1])
+
+    plt.figure(figsize=(8,5))
+
+    plt.bar(products, sales)
+
+    plt.title("Product Sales")
+    plt.xlabel("Products")
+    plt.ylabel("Sales")
+
+    plt.xticks(rotation=15)
+
+    plt.show()
+
+
+def city_sales_chart(c):
+
+    cities = []
+    sales = []
+
+    for row in c:
+        cities.append(row[0])
+        sales.append(row[1])
+
+    plt.figure(figsize=(7,7))
+
+    plt.pie(sales, labels=cities, autopct='%1.1f%%')
+
+    plt.title("City-wise Sales Contribution")
+
+    plt.show()
+
+
+def customer_chart(t):
+
+    names = []
+    spending = []
+
+    for row in t:
+        names.append(row[0])
+        spending.append(row[1])
+
+    plt.figure(figsize=(8,5))
+
+    plt.bar(names, spending)
+
+    plt.title("Top Customers")
+    plt.xlabel("Customers")
+    plt.ylabel("Amount Spent")
+
+    plt.xticks(rotation=10)
+
+    plt.show()
+
+
+# ---------------- SHOW CHARTS ----------------
+
+monthly_sales_chart(m)
+product_sales_chart(p)
+city_sales_chart(c)
+customer_chart(t)
+
+print("\n✅ Project Completed Successfully")
